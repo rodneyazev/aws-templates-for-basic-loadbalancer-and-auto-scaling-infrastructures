@@ -1,0 +1,11 @@
+# Ansible Playbook to update system packages
+---
+- name: Update system packages
+  hosts: all    # Target all hosts, include web_servers
+  become: yes
+
+  tasks:
+    - name: Run apt update and upgrade
+      apt:
+        upgrade: yes
+        update_cache: yes

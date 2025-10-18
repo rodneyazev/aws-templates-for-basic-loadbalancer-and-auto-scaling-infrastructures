@@ -1,0 +1,16 @@
+# ansible/aws_ec2.yml
+plugin: aws_ec2
+regions:
+  - us-east-1
+filters:
+  instance-state-name: running
+  tag:Name: my-asg-instance
+keyed_groups:
+  - key: tags['aws:autoscaling:groupName']
+    prefix: asg_
+  - key: tags['Name']
+    prefix: name_
+hostnames:
+  - ip-address  # Changed from public-ip-address
+compose:
+  ansible_host: public_ip_address  # Explicitly set ansible_host variable

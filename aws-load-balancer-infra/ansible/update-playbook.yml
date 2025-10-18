@@ -1,0 +1,61 @@
+---
+- name: Atualizar múltiplas instâncias EC2 simultaneamente
+  hosts: all    # Target all hosts, include web_servers
+  become: yes
+  serial: 2     # Atualiza 2 servidores por vez
+  
+  tasks:
+    - name: Atualizar cache de pacotes
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Atualizar todos os pacotes
+      apt:
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+      when: ansible_os_family == "Debian"
+      register: update_result
+
+    - name: Mostrar resultado da atualização
+      debug:
+        var: update_result
+
+    - name: Verificar se reboot é necessário
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Mostrar status do reboot
+      debug:
+        msg: "{{ inventory_hostname }} - Reboot necessário: {{ reboot_required.stat.exists }}"
+
+    - name: Reiniciar servidores se necessário
+      reboot:
+        msg: "Reboot necessário após atualizações"
+        connect_timeout: 10
+        reboot_timeout: 300
+        pre_reboot_delay: 5
+        post_reboot_delay: 30
+      when: reboot_required.stat.exists
+
+    - name: Aguardar servidores ficarem online
+      wait_for_connection:
+        connect_timeout: 20
+        sleep: 5
+        delay: 5
+        timeout: 300
+
+    - name: Verificar sistema após atualização
+      shell: |
+        echo "Hostname: $(hostname)"
+        echo "Uptime: $(uptime -p)"
+        echo "OS: $(lsb_release -d | cut -f2)"
+        echo "Kernel: $(uname -r)"
+      register: system_info
+
+    - name: Mostrar informações do sistema
+      debug:
+        var: system_info.stdout

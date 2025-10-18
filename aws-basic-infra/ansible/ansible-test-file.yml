@@ -1,0 +1,18 @@
+# Ansible Test File
+---
+- name: Create a simple file on EC2 instance
+  hosts: all    # Target all hosts, include web_servers
+  become: yes
+
+  tasks:
+    - name: Create a test file
+      copy:
+        content: |
+          Hello from Ansible!
+          This file was created automatically.
+          Server: {{ ansible_hostname }}
+          Date: {{ ansible_date_time.iso8601 }}
+        dest: /home/ubuntu/test-file.txt
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
