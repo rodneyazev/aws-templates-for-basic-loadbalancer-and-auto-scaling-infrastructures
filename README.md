@@ -13,7 +13,7 @@
 - Ansible
 - 01 Key Pair (EC2)
 
-<i>P.S.: If you are using any APT GNU/Linux distribution, you can install them using my <a href="https://github.com/rodneyazev/just-a-devops-toolkit-wsl-linux">just-a-devops-toolkit-wsl-linux</a></i> .
+<i>P.S.: If you are using any APT GNU/Linux distribution, you can install them using my <a href="https://github.com/rodneyazev/just-a-devops-toolkit-wsl-linux">just-a-devops-toolkit-wsl-linux</a></i>
 
 <hr>
 
@@ -61,6 +61,6 @@ ssh-keygen -y -f ../.aws/<my-ssh-key>.pem > ../.aws/<my-ssh-key>.pem.pub
 ```inventory.ini```
 
 <i>Only if needed.<br>
-Checkinfrastructure README.md file.</i>
+Check the Infrastructure main README.md file for more details.</i>
 
 <img src="readme-img/inventory.png" />
