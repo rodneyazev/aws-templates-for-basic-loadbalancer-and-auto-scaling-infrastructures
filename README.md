@@ -21,7 +21,7 @@
 <hr>
 
 <p align="center">
-  <img src="readme-img/logos.png" alt="logos" />
+  <img src="readme-img/aw-ansible-terraform-logo.png" alt="logos" />
 </p>
 
 <hr>
