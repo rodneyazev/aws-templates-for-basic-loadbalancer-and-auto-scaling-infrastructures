@@ -45,6 +45,7 @@ ssh-keygen -t rsa -b 2048 -f <my-ssh-key>.pem
 
 ```
 # Generate public key from your private key
+
 ssh-keygen -y -f ../.aws/<my-ssh-key>.pem > ../.aws/<my-ssh-key>.pem.pub
 ```
 
@@ -59,6 +60,6 @@ ssh-keygen -y -f ../.aws/<my-ssh-key>.pem > ../.aws/<my-ssh-key>.pem.pub
 <img src="readme-img/ansible.png" />
 
 ```inventory.ini```
-<i>Only if needed. Check the Infrastructure main README.md file for more details.</i>
+<br><i>Only if needed. Check the Infrastructure main README.md file for more details.</i>
 
 <img src="readme-img/inventory.png" />
