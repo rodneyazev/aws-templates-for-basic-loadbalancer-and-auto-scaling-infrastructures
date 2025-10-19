@@ -60,7 +60,6 @@ ssh-keygen -y -f ../.aws/<my-ssh-key>.pem > ../.aws/<my-ssh-key>.pem.pub
 
 ```inventory.ini```
 
-<i>Only if needed.<br>
-Check the Infrastructure main README.md file for more details.</i>
+<i>Only if needed. Check the Infrastructure main README.md file for more details.</i>
 
 <img src="readme-img/inventory.png" />
