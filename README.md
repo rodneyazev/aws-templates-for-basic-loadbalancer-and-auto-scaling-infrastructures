@@ -1,3 +1,6 @@
+<i>P.S.:
+- Make sure you choose the appropriate AMI image.</i>
+
 ## AWS Templates for:
 
 - <a href="aws-basic-infra/README.md">Basic Infrastructure</a>

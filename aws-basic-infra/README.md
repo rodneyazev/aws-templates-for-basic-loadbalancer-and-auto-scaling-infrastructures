@@ -1,4 +1,7 @@
-<i>P.S.: Make sure you already have the requirements mentioned in the root of this repository (create the key pair, etc).</i>
+<i>P.S.:
+
+- Make sure you already have the requirements mentioned in the root of this repository (create the key pair, etc).
+- Make sure you choose the appropriate AMI image.</i>
 
 ## AWS Templates for Basic Infrastructure
 
@@ -113,5 +116,11 @@ ansible-playbook ansible/update-playbook.yml ansible/ansible-test-file.yml -i $(
 ```
 
 <img src="../readme-img/pandora-update-upgrade-push-file.png" />
+
+### Dynamic way
+
+```
+None
+```
 
 That's it.
