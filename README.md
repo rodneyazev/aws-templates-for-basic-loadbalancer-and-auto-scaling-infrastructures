@@ -59,7 +59,6 @@ ssh-keygen -y -f ../.aws/<my-ssh-key>.pem > ../.aws/<my-ssh-key>.pem.pub
 <img src="readme-img/ansible.png" />
 
 ```inventory.ini```
-
 <i>Only if needed. Check the Infrastructure main README.md file for more details.</i>
 
 <img src="readme-img/inventory.png" />
