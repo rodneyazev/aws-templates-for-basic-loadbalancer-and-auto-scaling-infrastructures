@@ -8,7 +8,7 @@
 ## AWS Templates for Auto Scaling Infrastructure
 
 <p align="center">
-  <img src="../readme-img/aw-ansible-terraform-logo.png" alt="logo" />
+  <img src="../readme-img/aw-ansible-terraform-logo.png" alt="logo" style="width: 60%"/>
 </p>
 
 <hr>
