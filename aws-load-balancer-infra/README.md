@@ -1,4 +1,4 @@
-## AWS Templates for Basic Infrastructure
+P.S.: Make sure you already have the requirements mentioned in the root of this repository (create the key pair, etc).
 
 <p align="center">
   <img src="../readme-img/logos.png" alt="logos" />
