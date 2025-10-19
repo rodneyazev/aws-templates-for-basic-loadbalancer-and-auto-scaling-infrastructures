@@ -48,7 +48,7 @@ aws ec2 describe-instances --query 'Reservations[].Instances[].PublicIpAddress' 
 ```
 
 ```
-# If you need to get you private IP
+# If you need to get your private IP
 
 aws ec2 describe-instances --query 'Reservations[].Instances[].PrivateIpAddress' --output text
 ```
@@ -96,7 +96,7 @@ ansible-playbook -i ansible/inventory.ini ansible/update-playbook.yml ansible/an
 <img src="../readme-img/ansible-update-upgrade-push-file.png" />
 
 ### "Hard" way
-<i>Including the public IP in the inventory.ini file is not necessary.</i>
+<i>Including the public IPs in the inventory.ini file is not necessary in this case.</i>
 
 - Let's see if your host is visible
 
