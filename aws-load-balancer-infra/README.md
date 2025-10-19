@@ -1,5 +1,7 @@
 P.S.: Make sure you already have the requirements mentioned in the root of this repository (create the key pair, etc).
 
+## AWS Templates for Load Balancer Infrastructure
+
 <p align="center">
   <img src="../readme-img/logos.png" alt="logos" />
 </p>
