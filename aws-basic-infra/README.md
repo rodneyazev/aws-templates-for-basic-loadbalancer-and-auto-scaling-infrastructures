@@ -1,4 +1,4 @@
-<i>P.S.: Make sure you already have the requirements mentioned in the root of this repository (<span style="color: #ADD8E6">create the key pair, etc</span>).</i>
+<i>P.S.: Make sure you already have the requirements mentioned in the root of this repository (create the key pair, etc).</i>
 
 ## AWS Templates for Basic Infrastructure
 
