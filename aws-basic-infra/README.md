@@ -114,3 +114,4 @@ ansible-playbook ansible/update-playbook.yml ansible/ansible-test-file.yml -i $(
 
 <img src="../readme-img/pandora-update-upgrade-push-file.png" />
 
+That's it.

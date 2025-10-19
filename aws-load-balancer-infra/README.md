@@ -129,3 +129,4 @@ ansible-playbook ansible/update-playbook.yml ansible/ansible-test-file.yml -i $(
 
 <img src="../readme-img/load-balancer-pandora-update-upgrade-2.png" />
 
+That's it.
