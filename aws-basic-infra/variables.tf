@@ -13,7 +13,7 @@ variable "instance_type" {
 variable "ssh_key_name" {
   description = "Name of the existing SSH key pair in AWS"
   type        = string
-  default     = "my-ssh-key-votc"     # Name of the existing SSH key pair in AWS.
+  default     = "<your-ssh-key-NAME>"     # Name of the existing SSH key pair in AWS. The same you download or create in AWS EC2 console.
 }
 
 # Not necessary if using existing key pair name directly
