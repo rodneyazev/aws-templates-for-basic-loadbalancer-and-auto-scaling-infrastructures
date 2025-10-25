@@ -43,24 +43,24 @@ jobs:
         rm -rf aws-infra
         git clone https://github.com/rodneyazev/aws-templates-for-basic-loadbalancer-and-auto-scaling-infrastructures.git aws-infra
 
-    - name: List state files before restore
+    - name: Debug - Check initial state files
       run: |
-        echo "=== Files in state directory ==="
-        ls -la ${{ env.PERSISTENT_STATE_DIR }} || echo "State directory doesn't exist"
-        echo "=== Files in working directory before restore ==="
-        ls -la
+        echo "=== Initial state files in persistent directory ==="
+        ls -la ${{ env.PERSISTENT_STATE_DIR }}/* 2>/dev/null || echo "No files in persistent directory"
+        echo "=== Initial state files in terraform directory ==="
+        ls -la *.tfstate* 2>/dev/null || echo "No state files in terraform directory"
       working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Restore previous state
       run: |
-        echo "Restoring state files..."
-        cp ../${{ env.PERSISTENT_STATE_DIR }}/*.tfstate* . 2>/dev/null && echo "State files restored" || echo "No previous state found"
-      working-directory: ${{ env.TF_WORKING_DIR }}
-
-    - name: List state files after restore
-      run: |
-        echo "=== Files in working directory after restore ==="
-        ls -la *.tfstate* 2>/dev/null || echo "No state files present"
+        echo "Restoring state files from persistent storage..."
+        if [ -n "$(find ../${{ env.PERSISTENT_STATE_DIR }} -name '*.tfstate*' -print -quit)" ]; then
+          cp ../${{ env.PERSISTENT_STATE_DIR }}/*.tfstate* .
+          echo "State files restored successfully"
+          ls -la *.tfstate*
+        else
+          echo "No previous state files found to restore"
+        fi
       working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Init
@@ -69,13 +69,6 @@ jobs:
 
     - name: Terraform Validate
       run: terraform validate
-      working-directory: ${{ env.TF_WORKING_DIR }}
-
-    - name: Show Terraform State
-      if: github.event.inputs.action == 'destroy'
-      run: |
-        echo "=== Current Terraform State ==="
-        terraform show
       working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Plan
@@ -98,10 +91,19 @@ jobs:
       run: terraform destroy -auto-approve
       working-directory: ${{ env.TF_WORKING_DIR }}
 
-    - name: Save state files
+    - name: Save state files after operation
       run: |
-        echo "Saving state files..."
-        cp *.tfstate* ../${{ env.PERSISTENT_STATE_DIR }}/ 2>/dev/null && echo "State files saved" || echo "No state files to save"
+        echo "Saving state files to persistent storage..."
+        # Remove old state files from persistent directory
+        rm -f ../${{ env.PERSISTENT_STATE_DIR }}/*.tfstate*
+        # Copy new state files
+        if [ -n "$(find . -name '*.tfstate*' -print -quit)" ]; then
+          cp *.tfstate* ../${{ env.PERSISTENT_STATE_DIR }}/
+          echo "State files saved successfully:"
+          ls -la ../${{ env.PERSISTENT_STATE_DIR }}/*.tfstate*
+        else
+          echo "No state files to save after operation"
+        fi
       working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Upload state files as artifact
