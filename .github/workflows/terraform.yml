@@ -13,6 +13,10 @@ on:
           - destroy
         default: 'plan'
 
+env:
+  # Use your actual bucket name directly here
+  TF_STATE_BUCKET: 'my-permanent-terraform-state'
+
 jobs:
   terraform:
     runs-on: ubuntu-latest
@@ -33,12 +37,15 @@ jobs:
 
     - name: Verify S3 bucket exists
       run: |
-        echo "Using permanent S3 bucket: ${{ secrets.TF_STATE_BUCKET }}"
-        aws s3api head-bucket --bucket "${{ secrets.TF_STATE_BUCKET }}" || {
-          echo "ERROR: S3 bucket ${{ secrets.TF_STATE_BUCKET }} doesn't exist!"
+        echo "Using permanent S3 bucket: $TF_STATE_BUCKET"
+        aws s3api head-bucket --bucket "$TF_STATE_BUCKET" || {
+          echo "ERROR: S3 bucket $TF_STATE_BUCKET doesn't exist or is not accessible!"
+          echo "Please create it manually with:"
+          echo "aws s3api create-bucket --bucket $TF_STATE_BUCKET --region ${{ secrets.AWS_REGION }}"
+          echo "aws s3api put-bucket-versioning --bucket $TF_STATE_BUCKET --versioning-configuration Status=Enabled"
           exit 1
         }
-        echo "✓ S3 bucket verified"
+        echo "✓ S3 bucket verified and accessible"
 
     - name: Clone infrastructure templates
       run: |
@@ -47,8 +54,6 @@ jobs:
         
         echo "=== Directory Structure ==="
         find aws-infra -type f -name "*.tf" | head -10
-        echo "=== Looking for main Terraform directory ==="
-        find aws-infra -name "*.tf" -exec dirname {} \; | sort -u
 
     - name: Find Terraform working directory
       id: find_tf_dir
@@ -68,13 +73,14 @@ jobs:
         cat > backend.tf << EOF
         terraform {
           backend "s3" {
-            bucket = "${{ secrets.TF_STATE_BUCKET }}"
+            bucket = "$TF_STATE_BUCKET"
             key    = "terraform.tfstate"
             region = "${{ secrets.AWS_REGION }}"
           }
         }
         EOF
-        echo "Configured S3 backend with bucket: ${{ secrets.TF_STATE_BUCKET }}"
+        echo "Configured S3 backend with bucket: $TF_STATE_BUCKET"
+        cat backend.tf
       working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
 
     - name: Terraform Init
@@ -85,6 +91,8 @@ jobs:
       run: |
         echo "=== Current State ==="
         terraform state list 2>/dev/null || echo "No existing state"
+        echo "=== S3 State File Info ==="
+        aws s3 ls s3://$TF_STATE_BUCKET/terraform.tfstate || echo "No state file in S3"
       working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
 
     - name: Terraform Plan
