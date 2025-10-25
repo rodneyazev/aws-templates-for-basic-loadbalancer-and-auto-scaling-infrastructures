@@ -43,18 +43,49 @@ jobs:
         rm -rf aws-infra
         git clone https://github.com/rodneyazev/aws-templates-for-basic-loadbalancer-and-auto-scaling-infrastructures.git aws-infra
 
+    - name: List state files before restore
+      run: |
+        echo "=== Files in state directory ==="
+        ls -la ${{ env.PERSISTENT_STATE_DIR }} || echo "State directory doesn't exist"
+        echo "=== Files in working directory before restore ==="
+        ls -la
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
     - name: Restore previous state
       run: |
-        cp ${{ env.PERSISTENT_STATE_DIR }}/*.tfstate* . 2>/dev/null || echo "No previous state found"
+        echo "Restoring state files..."
+        cp ../${{ env.PERSISTENT_STATE_DIR }}/*.tfstate* . 2>/dev/null && echo "State files restored" || echo "No previous state found"
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: List state files after restore
+      run: |
+        echo "=== Files in working directory after restore ==="
+        ls -la *.tfstate* 2>/dev/null || echo "No state files present"
       working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Init
       run: terraform init
       working-directory: ${{ env.TF_WORKING_DIR }}
 
+    - name: Terraform Validate
+      run: terraform validate
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Show Terraform State
+      if: github.event.inputs.action == 'destroy'
+      run: |
+        echo "=== Current Terraform State ==="
+        terraform show
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
     - name: Terraform Plan
       if: github.event.inputs.action == 'plan'
       run: terraform plan
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Terraform Plan Destroy
+      if: github.event.inputs.action == 'destroy'
+      run: terraform plan -destroy
       working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Apply
@@ -69,7 +100,8 @@ jobs:
 
     - name: Save state files
       run: |
-        cp *.tfstate* ../${{ env.PERSISTENT_STATE_DIR }}/ 2>/dev/null || echo "No state files to save"
+        echo "Saving state files..."
+        cp *.tfstate* ../${{ env.PERSISTENT_STATE_DIR }}/ 2>/dev/null && echo "State files saved" || echo "No state files to save"
       working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Upload state files as artifact
