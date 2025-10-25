@@ -99,3 +99,10 @@ aws s3api put-bucket-versioning --bucket my-permanent-terraform-state --versioni
 ### Delete the state file from your permanent bucket:
 aws s3 rm s3://my-terraform-state-permanent/terraform.tfstate
 aws s3 rm s3://my-terraform-state-permanent/terraform.tfstate.backup
+
+<i>Don't forget to change S3 name</i><br>
+```
+# terraform.yml
+
+TF_STATE_BUCKET: 'my-permanent-terraform-state'
+```
