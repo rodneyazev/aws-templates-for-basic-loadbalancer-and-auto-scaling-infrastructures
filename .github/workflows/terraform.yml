@@ -1,0 +1,102 @@
+name: Terraform AWS Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        description: 'Terraform action'
+        required: true
+        options:
+          - plan
+          - apply
+          - destroy
+        default: 'plan'
+
+env:
+  PERSISTENT_STATE_DIR: 'terraform-state-files'
+  TF_WORKING_DIR: 'aws-infra/aws-basic-infra'
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Create persistent state directory
+      run: mkdir -p ${{env.PERSISTENT_STATE_DIR}}
+
+    - name: Clone infrastructure templates
+      run: |
+        rm -rf aws-infra
+        git clone https://github.com/rodneyazev/aws-templates-for-basic-loadbalancer-and-auto-scaling-infrastructures.git aws-infra
+
+    - name: Restore previous state
+      run: |
+        cp ${{ env.PERSISTENT_STATE_DIR }}/*.tfstate* ${{ env.TF_WORKING_DIR }}/ 2>/dev/null || echo "No previous state found"
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Terraform Init
+      run: terraform init
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Terraform Plan
+      if: github.event.inputs.action == 'plan'
+      run: terraform plan
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Terraform Apply
+      if: github.event.inputs.action == 'apply'
+      run: terraform apply -auto-approve
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Terraform Destroy
+      if: github.event.inputs.action == 'destroy'
+      run: terraform destroy -auto-approve
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Save state files
+      run: |
+        cp *.tfstate* ../${{ env.PERSISTENT_STATE_DIR }}/ 2>/dev/null || echo "No state files to save"
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Upload state files as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-state
+        path: ${{ env.PERSISTENT_STATE_DIR }}/
+        retention-days: 30
+
+
+    # Add this step after cloning the repository
+    #- name: Configure remote backend
+    #  run: |
+    #    cat > backend.tf << EOF
+    #    terraform {
+    #      backend "s3" {
+    #        bucket = "${{ secrets.TF_STATE_BUCKET }}"
+    #        key    = "terraform.tfstate"
+    #        region = "${{ secrets.AWS_REGION }}"
+    #      }
+    #    }
+    #    EOF
+    #  working-directory: ${{ env.TF_WORKING_DIR }}
+
+
+    #- name: Update SSH Key Configuration
+    #    run: |
+    #      sed -i 's|~/.aws/<your-ssh-key>.pem|~/.aws/my-ssh-key-votc.pem|g' variables.tf
+    #      sed -i 's|<your-ssh-key-NAME>|my-ssh-key-votc|g' variables.tf
+    #    working-directory: ${{ env.TF_WORKING_DIR }}
