@@ -13,9 +13,6 @@ on:
           - destroy
         default: 'plan'
 
-env:
-  TF_WORKING_DIR: 'aws-infra/aws-basic-infra'
-
 jobs:
   terraform:
     runs-on: ubuntu-latest
@@ -39,8 +36,6 @@ jobs:
         echo "Using permanent S3 bucket: ${{ secrets.TF_STATE_BUCKET }}"
         aws s3api head-bucket --bucket "${{ secrets.TF_STATE_BUCKET }}" || {
           echo "ERROR: S3 bucket ${{ secrets.TF_STATE_BUCKET }} doesn't exist!"
-          echo "Create it manually first:"
-          echo "aws s3api create-bucket --bucket ${{ secrets.TF_STATE_BUCKET }} --region ${{ secrets.AWS_REGION }}"
           exit 1
         }
         echo "✓ S3 bucket verified"
@@ -49,12 +44,27 @@ jobs:
       run: |
         rm -rf aws-infra
         git clone https://github.com/rodneyazev/aws-templates-for-basic-loadbalancer-and-auto-scaling-infrastructures.git aws-infra
+        
+        echo "=== Directory Structure ==="
+        find aws-infra -type f -name "*.tf" | head -10
+        echo "=== Looking for main Terraform directory ==="
+        find aws-infra -name "*.tf" -exec dirname {} \; | sort -u
+
+    - name: Find Terraform working directory
+      id: find_tf_dir
+      run: |
+        # Look for directories with .tf files
+        TF_DIRS=$(find aws-infra -name "*.tf" -exec dirname {} \; | sort -u)
+        echo "Found Terraform directories:"
+        echo "$TF_DIRS"
+        
+        # Use the first one (usually the main one)
+        MAIN_TF_DIR=$(echo "$TF_DIRS" | head -1)
+        echo "Using directory: $MAIN_TF_DIR"
+        echo "tf_working_dir=$MAIN_TF_DIR" >> $GITHUB_OUTPUT
 
     - name: Configure S3 backend
       run: |
-        # Remove any existing backend config
-        rm -f backend.tf
-        
         cat > backend.tf << EOF
         terraform {
           backend "s3" {
@@ -64,45 +74,37 @@ jobs:
           }
         }
         EOF
-        echo "Configured S3 backend with PERMANENT bucket: ${{ secrets.TF_STATE_BUCKET }}"
-      working-directory: ${{ env.TF_WORKING_DIR }}
-
-    - name: Update SSH Key Configuration
-      run: |
-        sed -i 's|~/.aws/<your-ssh-key>.pem|~/.aws/my-ssh-key-votc.pem|g' variables.tf
-        sed -i 's|<your-ssh-key-NAME>|my-ssh-key-votc|g' variables.tf
-      working-directory: ${{ env.TF_WORKING_DIR }}
+        echo "Configured S3 backend with bucket: ${{ secrets.TF_STATE_BUCKET }}"
+      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
 
     - name: Terraform Init
       run: terraform init
-      working-directory: ${{ env.TF_WORKING_DIR }}
+      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
 
     - name: Check current state before operation
       run: |
         echo "=== Current State ==="
         terraform state list 2>/dev/null || echo "No existing state"
-        echo "=== S3 State File ==="
-        aws s3 ls s3://${{ secrets.TF_STATE_BUCKET }}/terraform.tfstate || echo "No state file in S3"
-      working-directory: ${{ env.TF_WORKING_DIR }}
+      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
 
     - name: Terraform Plan
       if: github.event.inputs.action == 'plan'
       run: terraform plan
-      working-directory: ${{ env.TF_WORKING_DIR }}
+      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
 
     - name: Terraform Apply
       if: github.event.inputs.action == 'apply'
       run: terraform apply -auto-approve
-      working-directory: ${{ env.TF_WORKING_DIR }}
+      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
 
     - name: Terraform Destroy
       if: github.event.inputs.action == 'destroy'
       run: terraform destroy -auto-approve
-      working-directory: ${{ env.TF_WORKING_DIR }}
+      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
 
     - name: Show state after operation
       if: always()
       run: |
         echo "=== State After Operation ==="
         terraform state list 2>/dev/null || echo "No state remaining"
-      working-directory: ${{ env.TF_WORKING_DIR }}
+      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
