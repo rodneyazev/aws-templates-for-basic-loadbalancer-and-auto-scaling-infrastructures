@@ -27,6 +27,7 @@
 <hr>
 
 ### Changes you will need to manage:
+<i>It may be necessary to download and use it (E.g.: Ansible)</i>
 
 - ### Create an SSH key pair on EC2
 
@@ -44,7 +45,7 @@
 ssh-keygen -t rsa -b 2048 -f <my-ssh-key>.pem
 ```
 
-<i>You will need to create a public key equivalent:</i>
+<i>Create a public key equivalent:</i>
 
 ```
 # Generate public key from your private key
