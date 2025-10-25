@@ -36,7 +36,7 @@ jobs:
         aws-region: ${{ secrets.AWS_REGION }}
 
     - name: Create persistent state directory
-      run: mkdir -p ${{env.PERSISTENT_STATE_DIR}}
+      run: mkdir -p ${{ env.PERSISTENT_STATE_DIR }}
 
     - name: Clone infrastructure templates
       run: |
@@ -45,8 +45,8 @@ jobs:
 
     - name: Restore previous state
       run: |
-        cp ${{ env.PERSISTENT_STATE_DIR }}/*.tfstate* ${{ env.TF_WORKING_DIR }}/ 2>/dev/null || echo "No previous state found"
-        working-directory: ${{ env.TF_WORKING_DIR }}
+        cp ${{ env.PERSISTENT_STATE_DIR }}/*.tfstate* . 2>/dev/null || echo "No previous state found"
+      working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Init
       run: terraform init
@@ -70,7 +70,7 @@ jobs:
     - name: Save state files
       run: |
         cp *.tfstate* ../${{ env.PERSISTENT_STATE_DIR }}/ 2>/dev/null || echo "No state files to save"
-        working-directory: ${{ env.TF_WORKING_DIR }}
+      working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Upload state files as artifact
       uses: actions/upload-artifact@v4
@@ -78,25 +78,3 @@ jobs:
         name: terraform-state
         path: ${{ env.PERSISTENT_STATE_DIR }}/
         retention-days: 30
-
-
-    # Add this step after cloning the repository
-    #- name: Configure remote backend
-    #  run: |
-    #    cat > backend.tf << EOF
-    #    terraform {
-    #      backend "s3" {
-    #        bucket = "${{ secrets.TF_STATE_BUCKET }}"
-    #        key    = "terraform.tfstate"
-    #        region = "${{ secrets.AWS_REGION }}"
-    #      }
-    #    }
-    #    EOF
-    #  working-directory: ${{ env.TF_WORKING_DIR }}
-
-
-    #- name: Update SSH Key Configuration
-    #    run: |
-    #      sed -i 's|~/.aws/<your-ssh-key>.pem|~/.aws/my-ssh-key-votc.pem|g' variables.tf
-    #      sed -i 's|<your-ssh-key-NAME>|my-ssh-key-votc|g' variables.tf
-    #    working-directory: ${{ env.TF_WORKING_DIR }}
