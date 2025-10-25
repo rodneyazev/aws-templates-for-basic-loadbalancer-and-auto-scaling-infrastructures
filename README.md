@@ -67,3 +67,35 @@ ssh-keygen -y -f ../.aws/<my-ssh-key>.pem > ../.aws/<my-ssh-key>.pem.pub
 <br><i>Only if needed. Check the main Infrastructure README.md file for more details.</i>
 
 <img src="readme-img/inventory.png" />
+
+## GitHub Actions
+
+What is necessary to run it?
+
+# 1) Variables
+
+### Your AWS SSH Key Name
+
+```
+# variables.tf
+
+# Name of the existing SSH key pair in AWS. The same you download or create in AWS EC2 console. E.g.: my-ssh-key-votc
+
+variable "ssh_key_name" {
+  description = "Name of the existing SSH key pair in AWS"
+  type        = string
+  default     = "<your-ssh-key-name-here>"
+}
+```
+
+# 2) Create a S3 to store Terraform State
+
+### Create a permanent S3 bucket for Terraform state:
+aws s3api create-bucket --bucket my-permanent-terraform-state --region us-east-1
+
+### Enable versioning:
+aws s3api put-bucket-versioning --bucket my-permanent-terraform-state --versioning-configuration Status=Enabled
+
+### Delete the state file from your permanent bucket:
+aws s3 rm s3://my-terraform-state-permanent/terraform.tfstate
+aws s3 rm s3://my-terraform-state-permanent/terraform.tfstate.backup

@@ -1,4 +1,4 @@
-name: Terraform AWS Infrastructure with S3 Backend
+name: Terraform AWS Infrastructure
 
 on:
   workflow_dispatch:
@@ -34,34 +34,17 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    - name: Create S3 bucket for Terraform state
+    - name: Verify S3 bucket exists
       run: |
-        # Create unique bucket name (S3 bucket names must be globally unique)
-        BUCKET_NAME="terraform-state-${{ github.run_id }}-${{ github.run_attempt }}"
-        echo "TF_STATE_BUCKET=$BUCKET_NAME" >> $GITHUB_ENV
-        
-        # For us-east-1, don't use LocationConstraint
-        if [ "${{ secrets.AWS_REGION }}" = "us-east-1" ]; then
-          aws s3api create-bucket \
-            --bucket $BUCKET_NAME \
-            --region ${{ secrets.AWS_REGION }} || echo "Bucket may already exist or creation failed"
-        else
-          aws s3api create-bucket \
-            --bucket $BUCKET_NAME \
-            --region ${{ secrets.AWS_REGION }} \
-            --create-bucket-configuration LocationConstraint=${{ secrets.AWS_REGION }} || echo "Bucket may already exist or creation failed"
-        fi
-        
-        # Wait a moment for bucket to be created
-        sleep 5
-        
-        # Enable versioning for state files
-        aws s3api put-bucket-versioning \
-          --bucket $BUCKET_NAME \
-          --versioning-configuration Status=Enabled || echo "Versioning configuration failed"
-          
-        echo "Using S3 bucket: $BUCKET_NAME"
-      
+        echo "Using permanent S3 bucket: ${{ secrets.TF_STATE_BUCKET }}"
+        aws s3api head-bucket --bucket "${{ secrets.TF_STATE_BUCKET }}" || {
+          echo "ERROR: S3 bucket ${{ secrets.TF_STATE_BUCKET }} doesn't exist!"
+          echo "Create it manually first:"
+          echo "aws s3api create-bucket --bucket ${{ secrets.TF_STATE_BUCKET }} --region ${{ secrets.AWS_REGION }}"
+          exit 1
+        }
+        echo "✓ S3 bucket verified"
+
     - name: Clone infrastructure templates
       run: |
         rm -rf aws-infra
@@ -69,35 +52,42 @@ jobs:
 
     - name: Configure S3 backend
       run: |
+        # Remove any existing backend config
+        rm -f backend.tf
+        
         cat > backend.tf << EOF
         terraform {
           backend "s3" {
-            bucket = "$TF_STATE_BUCKET"
+            bucket = "${{ secrets.TF_STATE_BUCKET }}"
             key    = "terraform.tfstate"
             region = "${{ secrets.AWS_REGION }}"
           }
         }
         EOF
-        echo "Configured S3 backend with bucket: $TF_STATE_BUCKET"
-        cat backend.tf
+        echo "Configured S3 backend with PERMANENT bucket: ${{ secrets.TF_STATE_BUCKET }}"
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Update SSH Key Configuration
+      run: |
+        sed -i 's|~/.aws/<your-ssh-key>.pem|~/.aws/my-ssh-key-votc.pem|g' variables.tf
+        sed -i 's|<your-ssh-key-NAME>|my-ssh-key-votc|g' variables.tf
       working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Init
       run: terraform init
       working-directory: ${{ env.TF_WORKING_DIR }}
 
-    - name: Terraform Validate
-      run: terraform validate
+    - name: Check current state before operation
+      run: |
+        echo "=== Current State ==="
+        terraform state list 2>/dev/null || echo "No existing state"
+        echo "=== S3 State File ==="
+        aws s3 ls s3://${{ secrets.TF_STATE_BUCKET }}/terraform.tfstate || echo "No state file in S3"
       working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Plan
       if: github.event.inputs.action == 'plan'
       run: terraform plan
-      working-directory: ${{ env.TF_WORKING_DIR }}
-
-    - name: Terraform Plan Destroy
-      if: github.event.inputs.action == 'destroy'
-      run: terraform plan -destroy
       working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Apply
@@ -110,8 +100,9 @@ jobs:
       run: terraform destroy -auto-approve
       working-directory: ${{ env.TF_WORKING_DIR }}
 
-    - name: Show S3 state info
+    - name: Show state after operation
       if: always()
       run: |
-        echo "=== S3 State Bucket Contents ==="
-        aws s3 ls s3://$TF_STATE_BUCKET/ --recursive || echo "No state files in bucket or bucket doesn't exist"
+        echo "=== State After Operation ==="
+        terraform state list 2>/dev/null || echo "No state remaining"
+      working-directory: ${{ env.TF_WORKING_DIR }}
