@@ -1,4 +1,4 @@
-name: Terraform AWS Infrastructure
+name: Terraform AWS Infrastructure with S3 Backend
 
 on:
   workflow_dispatch:
@@ -14,8 +14,8 @@ on:
         default: 'plan'
 
 env:
-  PERSISTENT_STATE_DIR: 'terraform-state-files'
   TF_WORKING_DIR: 'aws-infra/aws-basic-infra'
+  TF_STATE_BUCKET: 'my-terraform-state'
 
 jobs:
   terraform:
@@ -35,32 +35,42 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    - name: Create persistent state directory
-      run: mkdir -p ${{ env.PERSISTENT_STATE_DIR }}
-
+    - name: Create S3 bucket for Terraform state
+      run: |
+        # Create unique bucket name with timestamp
+        BUCKET_NAME="terraform-state-$(date +%s)-$GITHUB_RUN_ID"
+        echo "TF_STATE_BUCKET=$BUCKET_NAME" >> $GITHUB_ENV
+        
+        # Create S3 bucket for state
+        aws s3api create-bucket \
+          --bucket $BUCKET_NAME \
+          --region ${{ secrets.AWS_REGION }} \
+          --create-bucket-configuration LocationConstraint=${{ secrets.AWS_REGION }} || echo "Bucket may already exist"
+        
+        # Enable versioning for state files
+        aws s3api put-bucket-versioning \
+          --bucket $BUCKET_NAME \
+          --versioning-configuration Status=Enabled
+          
+        echo "Created S3 bucket: $BUCKET_NAME"
+      
     - name: Clone infrastructure templates
       run: |
         rm -rf aws-infra
         git clone https://github.com/rodneyazev/aws-templates-for-basic-loadbalancer-and-auto-scaling-infrastructures.git aws-infra
 
-    - name: Debug - Check initial state files
+    - name: Configure S3 backend
       run: |
-        echo "=== Initial state files in persistent directory ==="
-        ls -la ${{ env.PERSISTENT_STATE_DIR }}/* 2>/dev/null || echo "No files in persistent directory"
-        echo "=== Initial state files in terraform directory ==="
-        ls -la *.tfstate* 2>/dev/null || echo "No state files in terraform directory"
-      working-directory: ${{ env.TF_WORKING_DIR }}
-
-    - name: Restore previous state
-      run: |
-        echo "Restoring state files from persistent storage..."
-        if [ -n "$(find ../${{ env.PERSISTENT_STATE_DIR }} -name '*.tfstate*' -print -quit)" ]; then
-          cp ../${{ env.PERSISTENT_STATE_DIR }}/*.tfstate* .
-          echo "State files restored successfully"
-          ls -la *.tfstate*
-        else
-          echo "No previous state files found to restore"
-        fi
+        cat > backend.tf << EOF
+        terraform {
+          backend "s3" {
+            bucket = "$TF_STATE_BUCKET"
+            key    = "terraform.tfstate"
+            region = "${{ secrets.AWS_REGION }}"
+          }
+        }
+        EOF
+        echo "Configured S3 backend with bucket: $TF_STATE_BUCKET"
       working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Init
@@ -91,24 +101,9 @@ jobs:
       run: terraform destroy -auto-approve
       working-directory: ${{ env.TF_WORKING_DIR }}
 
-    - name: Save state files after operation
+    - name: Show S3 state info
+      if: always()
       run: |
-        echo "Saving state files to persistent storage..."
-        # Remove old state files from persistent directory
-        rm -f ../${{ env.PERSISTENT_STATE_DIR }}/*.tfstate*
-        # Copy new state files
-        if [ -n "$(find . -name '*.tfstate*' -print -quit)" ]; then
-          cp *.tfstate* ../${{ env.PERSISTENT_STATE_DIR }}/
-          echo "State files saved successfully:"
-          ls -la ../${{ env.PERSISTENT_STATE_DIR }}/*.tfstate*
-        else
-          echo "No state files to save after operation"
-        fi
+        echo "=== S3 State Bucket Contents ==="
+        aws s3 ls s3://$TF_STATE_BUCKET/ --recursive || echo "No state files in bucket"
       working-directory: ${{ env.TF_WORKING_DIR }}
-
-    - name: Upload state files as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: terraform-state
-        path: ${{ env.PERSISTENT_STATE_DIR }}/
-        retention-days: 30
