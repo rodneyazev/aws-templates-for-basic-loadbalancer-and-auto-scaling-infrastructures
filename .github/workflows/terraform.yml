@@ -15,7 +15,6 @@ on:
 
 env:
   TF_WORKING_DIR: 'aws-infra/aws-basic-infra'
-  TF_STATE_BUCKET: 'my-terraform-state'
 
 jobs:
   terraform:
@@ -37,22 +36,31 @@ jobs:
 
     - name: Create S3 bucket for Terraform state
       run: |
-        # Create unique bucket name with timestamp
-        BUCKET_NAME="terraform-state-$(date +%s)-$GITHUB_RUN_ID"
+        # Create unique bucket name (S3 bucket names must be globally unique)
+        BUCKET_NAME="terraform-state-${{ github.run_id }}-${{ github.run_attempt }}"
         echo "TF_STATE_BUCKET=$BUCKET_NAME" >> $GITHUB_ENV
         
-        # Create S3 bucket for state
-        aws s3api create-bucket \
-          --bucket $BUCKET_NAME \
-          --region ${{ secrets.AWS_REGION }} \
-          --create-bucket-configuration LocationConstraint=${{ secrets.AWS_REGION }} || echo "Bucket may already exist"
+        # For us-east-1, don't use LocationConstraint
+        if [ "${{ secrets.AWS_REGION }}" = "us-east-1" ]; then
+          aws s3api create-bucket \
+            --bucket $BUCKET_NAME \
+            --region ${{ secrets.AWS_REGION }} || echo "Bucket may already exist or creation failed"
+        else
+          aws s3api create-bucket \
+            --bucket $BUCKET_NAME \
+            --region ${{ secrets.AWS_REGION }} \
+            --create-bucket-configuration LocationConstraint=${{ secrets.AWS_REGION }} || echo "Bucket may already exist or creation failed"
+        fi
+        
+        # Wait a moment for bucket to be created
+        sleep 5
         
         # Enable versioning for state files
         aws s3api put-bucket-versioning \
           --bucket $BUCKET_NAME \
-          --versioning-configuration Status=Enabled
+          --versioning-configuration Status=Enabled || echo "Versioning configuration failed"
           
-        echo "Created S3 bucket: $BUCKET_NAME"
+        echo "Using S3 bucket: $BUCKET_NAME"
       
     - name: Clone infrastructure templates
       run: |
@@ -71,6 +79,7 @@ jobs:
         }
         EOF
         echo "Configured S3 backend with bucket: $TF_STATE_BUCKET"
+        cat backend.tf
       working-directory: ${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Init
@@ -105,5 +114,4 @@ jobs:
       if: always()
       run: |
         echo "=== S3 State Bucket Contents ==="
-        aws s3 ls s3://$TF_STATE_BUCKET/ --recursive || echo "No state files in bucket"
-      working-directory: ${{ env.TF_WORKING_DIR }}
+        aws s3 ls s3://$TF_STATE_BUCKET/ --recursive || echo "No state files in bucket or bucket doesn't exist"
