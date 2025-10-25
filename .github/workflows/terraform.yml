@@ -14,8 +14,8 @@ on:
         default: 'plan'
 
 env:
-  # Use your actual bucket name directly here
   TF_STATE_BUCKET: 'my-permanent-terraform-state'
+  TF_WORKING_DIR: 'aws-basic-infra'  # Correct path from the main branch
 
 jobs:
   terraform:
@@ -40,33 +40,24 @@ jobs:
         echo "Using permanent S3 bucket: $TF_STATE_BUCKET"
         aws s3api head-bucket --bucket "$TF_STATE_BUCKET" || {
           echo "ERROR: S3 bucket $TF_STATE_BUCKET doesn't exist or is not accessible!"
-          echo "Please create it manually with:"
-          echo "aws s3api create-bucket --bucket $TF_STATE_BUCKET --region ${{ secrets.AWS_REGION }}"
-          echo "aws s3api put-bucket-versioning --bucket $TF_STATE_BUCKET --versioning-configuration Status=Enabled"
           exit 1
         }
         echo "✓ S3 bucket verified and accessible"
 
-    - name: Clone infrastructure templates
+    - name: Clone infrastructure templates from main branch
       run: |
-        rm -rf aws-infra
-        git clone https://github.com/rodneyazev/aws-templates-for-basic-loadbalancer-and-auto-scaling-infrastructures.git aws-infra
+        rm -rf aws-templates
+        git clone --branch main https://github.com/rodneyazev/aws-templates-for-basic-loadbalancer-and-auto-scaling-infrastructures.git aws-templates
         
-        echo "=== Directory Structure ==="
-        find aws-infra -type f -name "*.tf" | head -10
-
-    - name: Find Terraform working directory
-      id: find_tf_dir
-      run: |
-        # Look for directories with .tf files
-        TF_DIRS=$(find aws-infra -name "*.tf" -exec dirname {} \; | sort -u)
-        echo "Found Terraform directories:"
-        echo "$TF_DIRS"
-        
-        # Use the first one (usually the main one)
-        MAIN_TF_DIR=$(echo "$TF_DIRS" | head -1)
-        echo "Using directory: $MAIN_TF_DIR"
-        echo "tf_working_dir=$MAIN_TF_DIR" >> $GITHUB_OUTPUT
+        echo "=== Checking if $TF_WORKING_DIR exists ==="
+        if [ -d "aws-templates/$TF_WORKING_DIR" ]; then
+          echo "✓ Directory exists"
+          ls -la aws-templates/$TF_WORKING_DIR/
+        else
+          echo "✗ Directory doesn't exist. Available directories:"
+          find aws-templates -type d | head -20
+          exit 1
+        fi
 
     - name: Configure S3 backend
       run: |
@@ -81,11 +72,11 @@ jobs:
         EOF
         echo "Configured S3 backend with bucket: $TF_STATE_BUCKET"
         cat backend.tf
-      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
+      working-directory: aws-templates/${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Init
       run: terraform init
-      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
+      working-directory: aws-templates/${{ env.TF_WORKING_DIR }}
 
     - name: Check current state before operation
       run: |
@@ -93,26 +84,26 @@ jobs:
         terraform state list 2>/dev/null || echo "No existing state"
         echo "=== S3 State File Info ==="
         aws s3 ls s3://$TF_STATE_BUCKET/terraform.tfstate || echo "No state file in S3"
-      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
+      working-directory: aws-templates/${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Plan
       if: github.event.inputs.action == 'plan'
       run: terraform plan
-      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
+      working-directory: aws-templates/${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Apply
       if: github.event.inputs.action == 'apply'
       run: terraform apply -auto-approve
-      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
+      working-directory: aws-templates/${{ env.TF_WORKING_DIR }}
 
     - name: Terraform Destroy
       if: github.event.inputs.action == 'destroy'
       run: terraform destroy -auto-approve
-      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
+      working-directory: aws-templates/${{ env.TF_WORKING_DIR }}
 
     - name: Show state after operation
       if: always()
       run: |
         echo "=== State After Operation ==="
         terraform state list 2>/dev/null || echo "No state remaining"
-      working-directory: ${{ steps.find_tf_dir.outputs.tf_working_dir }}
+      working-directory: aws-templates/${{ env.TF_WORKING_DIR }}
