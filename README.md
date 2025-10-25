@@ -68,11 +68,21 @@ ssh-keygen -y -f ../.aws/<my-ssh-key>.pem > ../.aws/<my-ssh-key>.pem.pub
 
 <img src="readme-img/inventory.png" />
 
-## GitHub Actions
+# GitHub Actions
 
 What is necessary to run it?
 
-# 1) Variables
+### You'll need to set these secrets in your GitHub repository settings:
+
+GitHub > Settings > Developer settings > Personal access tokens > Tokens (classic)
+
+```
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+AWS_REGION
+```
+
+## 1) Variables
 
 ### Your AWS SSH Key Name
 
@@ -88,17 +98,23 @@ variable "ssh_key_name" {
 }
 ```
 
-# 2) Create a S3 to store Terraform State
+## 2) Create a S3 to store Terraform State
 
-### Create a permanent S3 bucket for Terraform state:
+### Create a permanent S3 bucket for Terraform state
+```
 aws s3api create-bucket --bucket my-permanent-terraform-state --region us-east-1
+```
 
-### Enable versioning:
+### Enable versioning
+```
 aws s3api put-bucket-versioning --bucket my-permanent-terraform-state --versioning-configuration Status=Enabled
+```
 
 ### Delete the state file from your permanent bucket:
+```
 aws s3 rm s3://my-terraform-state-permanent/terraform.tfstate
 aws s3 rm s3://my-terraform-state-permanent/terraform.tfstate.backup
+```
 
 <i>Don't forget to change S3 name</i><br>
 ```
@@ -106,3 +122,5 @@ aws s3 rm s3://my-terraform-state-permanent/terraform.tfstate.backup
 
 TF_STATE_BUCKET: 'my-permanent-terraform-state'
 ```
+
+That is it.
